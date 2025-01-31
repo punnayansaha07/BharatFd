@@ -1,6 +1,7 @@
 from django.db import models
 from ckeditor.fields import RichTextField
 from googletrans import Translator
+from .redis_handler import RedisHandler
 
 translator = Translator()
 
@@ -18,7 +19,17 @@ class FAQ(models.Model):
         super().save(*args, **kwargs)
 
     def get_translated_question(self, lang):
-        return getattr(self, f'question_{lang}', self.question)
-    
+
+        cache_key = f'faq_{self.id}_{lang}'
+        cached_question = RedisHandler().get_cache(cache_key)
+        
+        if cached_question:
+            return cached_question
+        else:
+        
+            translated_question = getattr(self, f'question_{lang}', self.question)
+            RedisHandler().set_cache(cache_key, translated_question)
+            return translated_question
+
     def __str__(self):
         return self.question

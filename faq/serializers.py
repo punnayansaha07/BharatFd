@@ -4,4 +4,4 @@ from .models import FAQ
 class FAQSerializer(serializers.ModelSerializer):
     class Meta:
         model = FAQ
-        fields = ['id', 'question', 'answer', 'question_hi', 'question_bn']
+        fields = ['question', 'answer', 'id', 'created_at', 'updated_at']

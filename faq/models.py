@@ -8,28 +8,35 @@ translator = Translator()
 class FAQ(models.Model):
     question = models.TextField()
     answer = RichTextField()
-    question_hi = models.TextField(blank=True, null=True)
-    question_bn = models.TextField(blank=True, null=True)
-
+    
     def save(self, *args, **kwargs):
-        if not self.question_hi:
-            self.question_hi = translator.translate(self.question, src='en', dest='hi').text
-        if not self.question_bn:
-            self.question_bn = translator.translate(self.question, src='en', dest='bn').text
+       
         super().save(*args, **kwargs)
 
-    def get_translated_question(self, lang):
-
+    def get_translated_question(self, lang='en'):
+        
+    
         cache_key = f'faq_{self.id}_{lang}'
         cached_question = RedisHandler().get_cache(cache_key)
         
         if cached_question:
             return cached_question
-        else:
-        
-            translated_question = getattr(self, f'question_{lang}', self.question)
+
+    
+        try:
+            if lang != 'en':  
+                translated_question = translator.translate(self.question, src='en', dest=lang).text
+            else:
+                translated_question = self.question 
+            
+
             RedisHandler().set_cache(cache_key, translated_question)
+            
             return translated_question
+
+        except Exception as e:
+
+            return self.question 
 
     def __str__(self):
         return self.question

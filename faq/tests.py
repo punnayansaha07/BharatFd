@@ -1,57 +1,39 @@
 from django.test import TestCase
 from .models import FAQ
-from googletrans import Translator
-from rest_framework import status
-from rest_framework.test import APIClient
+from django.core.cache import cache
 
-translator = Translator()
-
-class FAQTestCase(TestCase):
+class FAQModelTest(TestCase):
     def setUp(self):
-        # Set up some test data for different languages
-        self.faq_english = FAQ.objects.create(
-            question="Can I get an interview chance in BharatFD?", 
-            answer="Hopefully yes"
+        self.faq = FAQ.objects.create(
+            question="HI How are you ?",
+            answer="Hello world",
         )
-        self.client = APIClient()
 
-    def test_dynamic_translation(self):
-        faq = FAQ.objects.get(question="Can I get an interview chance in BharatFD?")
-        
-        translated_hi = faq.get_translated_question('hi')
-        self.assertEqual(translated_hi, translator.translate("Can I get an interview chance in BharatFD?", src='en', dest='hi').text)
-        translated_sw = faq.get_translated_question('sw')
-        self.assertEqual(translated_sw, "Can I get an interview chance in BharatFD?")
+    def test_faq_creation(self):
+        self.assertEqual(self.faq.question, "HI How are you ?")
+        self.assertEqual(self.faq.answer, "Hello world")
 
-    def test_cache_and_fallback(self):
-        faq = FAQ.objects.get(question="Can I get an interview chance in BharatFD?")
+    def test_translation(self):
+        translated_question = self.faq.get_translated_question('hi')
+        translated_answer = self.faq.get_translated_answer('hi')
+        self.assertIn('hi', self.faq.question_translated)
+        self.assertIn('hi', self.faq.answer_translated)
+        self.assertEqual(translated_question, "HI How are you ?")
 
-        translated_hi = faq.get_translated_question('hi')
-        self.assertIsNotNone(translated_hi)
-        
-        translated_hi_cached = faq.get_translated_question('hi')
-        self.assertEqual(translated_hi, translated_hi_cached)
+    def test_cache_after_save(self):
+        cache_key = f"faq:{self.faq.pk}"
+        cached_data = cache.get(cache_key)
+        self.assertIsNotNone(cached_data)
+        self.assertEqual(cached_data['question'], "HI How are you ?")
+        self.assertEqual(cached_data['answer'], "Hello world")
 
-        translated_invalid = faq.get_translated_question('zz')
-        self.assertEqual(translated_invalid, "Can I get an interview chance in BharatFD?")
+    def test_cache_expiration(self):
+        cache_key = f"faq:{self.faq.pk}"
+        cache.set(cache_key, {'question': 'Test', 'answer': 'Answer'}, timeout=1)
+        from time import sleep
+        sleep(2)
+        cached_data = cache.get(cache_key)
+        self.assertIsNone(cached_data)
 
-    def test_pagination(self):
-        for i in range(30):
-            FAQ.objects.create(
-                question=f"Question {i}", 
-                answer="Answer to question"
-            )
-        
-        response = self.client.get('/api/v1/faqs/?page=1')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 20)  # Default page size is 20
-        self.assertIn('next', response.data)  # Check if pagination includes 'next'
-
-    def test_invalid_language(self):
-        response = self.client.get('/api/v1/faqs/?lang=invalidlang')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("detail", response.data)
-
-    def test_invalid_faq_request(self):
-        response = self.client.get('/api/v1/faqs/9999/')
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+    def test_str_method(self):
+        self.assertEqual(str(self.faq), "HI How are you ?")

@@ -1,9 +1,21 @@
 from django.contrib import admin
-from .models import FAQ
 from django.utils.translation import gettext_lazy as _
+from .models import FAQ
+from ckeditor.widgets import CKEditorWidget
+from django import forms
+
+class FAQAdminForm(forms.ModelForm):
+    class Meta:
+        model = FAQ
+        fields = '__all__'
+        widgets = {
+            'answer': CKEditorWidget(), 
+        }
 
 class FAQAdmin(admin.ModelAdmin):
-    list_display = ('question', 'answer', 'get_translations', 'id', 'created_at', 'updated_at')
+    form = FAQAdminForm
+
+    list_display = ('question', 'get_translations', 'id', 'created_at', 'updated_at')
     search_fields = ('question',)
     list_filter = ('created_at', 'updated_at')
     
@@ -12,20 +24,19 @@ class FAQAdmin(admin.ModelAdmin):
             'fields': ('question', 'answer')
         }),
         (_('Translations'), {
-            'fields': ('get_translations',)
+            'fields': ('question_translated', 'answer_translated')
         }),
     )
-    
+
     def get_translations(self, obj):
-        return ', '.join([
-            f"{lang.upper()}: {obj.get_translated_question(lang)}" 
-            for lang in ['hi', 'bn', 'sw', 'en']
-        ])
+        translations = [
+            f"en: {obj.get_translated_question('en')}",
+            f"hi: {obj.get_translated_question('hi')}",
+            f"bn: {obj.get_translated_question('bn')}",
+            f"sw: {obj.get_translated_question('sw')}"
+        ]
+        return ', '.join(translations)
+
     get_translations.short_description = _('Translations')
 
-    formfield_overrides = {
-        'answer': {'widget': admin.widgets.AdminTextareaWidget},
-    }
-
 admin.site.register(FAQ, FAQAdmin)
-
